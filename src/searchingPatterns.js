@@ -1,4 +1,5 @@
 import Chess from "chess.js"
+import {getSquaresOfPiece} from "./chessParser"
 
 export function findPattern(inputPattern, totalGames, setResultGames){
     console.log("buscando patrón...")
@@ -9,8 +10,12 @@ export function findPattern(inputPattern, totalGames, setResultGames){
     pattern = splitPattern(pattern)
     var fenPattern = readPattern(pattern.fixed)
 
+    if (pattern.fixed.length == 0 && pattern.attacking.length == 0)
+      return false
+
     var resultIndexGames = []
     for (var i=0; i<totalGames.length; i++){
+      //console.log(i)
       const history = totalGames[i].history({ verbose: true})
       const chess = new Chess()
 
@@ -18,9 +23,12 @@ export function findPattern(inputPattern, totalGames, setResultGames){
       for (var j=0; j<history.length; j++){
         chess.move(history[j])
         var fenPosition = chess.fen()
-        var found = searchPatternFixedPieces(fenPattern, fenPosition)
 
-        if (found){
+        var found = true
+        if (pattern.fixed.length > 0)
+          found = searchPatternFixedPieces(fenPattern, fenPosition)
+
+        if (found && pattern.attacking.length > 0){
           found = searchPatternAttackingPiece(pattern.attacking, fenPosition)
           if (found){
             resultIndexGames.push(i)
@@ -88,7 +96,6 @@ export function readPattern(pattern){
   return fenPattern
 }
 
-
 export function searchPatternFixedPieces(pattern, fenPosition){
   var indexFenPosition = 0
   for (let c of pattern){
@@ -112,53 +119,73 @@ export function searchPatternFixedPieces(pattern, fenPosition){
       }
     }
   }
-
   return true
 }
 
-export function searchPatternAttackingPiece(attackingPattern, fenPosition){
-  if (attackingPattern.length == 0)
-    return true
+export function searchPatternAttackingPiece(attackingPatterns, fenPosition){
+  //console.log(attackingPatterns)
+  //console.log(fenPosition)
+  if (attackingPatterns.length == 0)
+    return false
 
-  // From the current fenPosition duplicate it changing the turn in the game w->b or b->w
-  var fenPositions = [fenPosition]
-  var fenPosition2 = fenPosition.split(' ')
-  if (fenPosition2[1] == 'w')
-    fenPosition2[1] = 'b'
-  else
-    fenPosition2[1] = 'w'
-  fenPositions.push(fenPosition2.join(' '))
-
-  // For each fenPosition generate moves() and make the set of total moves
-  // then search for the piece requested and the attaked tile in the total set
-  var chess = new Chess()
-  var total_moves = []
-  for (let position of fenPositions){
-    chess.clear()
-    chess.load(position)
-    var moves = chess.moves({verbose: true})
-    total_moves.push.apply(total_moves, moves)
-  }
-
-  // Search for each pattern in total moves
-  for (let pattern of attackingPattern){
+  var found
+  for (let pattern of attackingPatterns){
+    // get the piece and its color
     var piece = pattern.charAt(0)
-    var color = ""
-    if (piece == piece.toUpperCase())
-      color = 'w'
-    else
-      color = 'b'
-    piece = piece.toLowerCase()
+    var color = piece == piece.toUpperCase() ? 'w' : 'b'
     var targetSquare = pattern.substring(3)
+    piece = piece.toLowerCase()
 
-    var foundPattern = false
-    for (let move of total_moves){
-      if (move.piece == piece && move.color == color && move.to == targetSquare){
-        foundPattern = true
-        break
+    // Loading the game from the current fen position
+    var chess = new Chess()
+    chess.load(fenPosition)
+
+    // Change the turn of current position to the color of the current pattern piece
+    // so we can get the legal moves of that piece otherwise the list of legal moves would be empty
+    if (color != chess.turn()){
+      fenPosition = fenPosition.split(' ')
+      fenPosition[1] = fenPosition[1]=='w' ? 'b': 'w'
+      if (piece != 'p')
+        fenPosition[3] = '-'
+      if (piece != 'k')
+        fenPosition[2] = '-'
+
+      fenPosition =  fenPosition.join(' ')
+      if (!chess.validate_fen(fenPosition)){
+        return false
       }
+
+      chess = new Chess(fenPosition)
+      //console.log("new fen: "+fenPosition)
+      //console.log("new turn: "+chess.turn())
     }
+
+    // For each pattern get the piece and find its position
+    var squares = getSquaresOfPiece(piece, color, chess.board())
+    //console.log(squares)
+
+    // if the piece is not in the board then return false
+    if (squares.length == 0)
+      return false
+
+    found = false
+    for (let square of squares){
+      var moves = chess.moves({verbose: true, square: square})
+      //console.log(moves)
+      for (let move of moves){
+        if (move.to == targetSquare){
+          found = true
+          break
+        }
+      }
+      if (found)
+        break
+    }
+
+    if (!found)
+      return false
   }
-  return foundPattern
+
+  return true
 }
 
