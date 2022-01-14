@@ -1,19 +1,46 @@
-import Chess from "chess.js";
 import {useEffect, useState} from "react";
 import {Button, Col, Form, FormGroup, Input, Label, Progress, Spinner} from "reactstrap";
 import * as searching from './searchingPatterns'
 
 export function PatternReader({inputPattern, setInputPattern, totalGames, setResultGames, setTotalGames}){
-  const [progress, setProgress] = useState(false)
+  const [statusProgress, setStatusProgress] = useState(0)
 
   useEffect(() => {
-    console.log("progress changed: " + progress)
-    if (progress){
-      var results = searching.findPattern(inputPattern, totalGames, setResultGames)
-      setResultGames(results)
-      setProgress(false)
+    if (statusProgress > 100)
+      setStatusProgress(0)
+  }, [statusProgress])
+
+  async function processGames() {
+    console.log("buscando patrón...")
+
+    var resultIndexGames = []
+    var pattern = inputPattern.split('\n')
+    if (!searching.validPattern(pattern)){
+      setResultGames([])
+      return
     }
-  }, [progress])
+
+    pattern = searching.splitPattern(pattern)
+    pattern.fixed = searching.readPattern(pattern.fixed)
+
+    if (pattern.fixed.length == 0 && pattern.attacking.length == 0){
+      setResultGames([])
+      return
+    }
+
+    const step = 100/totalGames.length
+    const promises = totalGames.map((game, index) =>
+        searching.findPatternInGame(game, pattern)
+        .then((found) => {
+          setStatusProgress(prev => prev+step)
+          if (found)
+            resultIndexGames.push(index)
+    }))
+    await Promise.all(promises)
+    console.log("busqueda finalizada")
+    setResultGames(resultIndexGames)
+    setStatusProgress(prev => 0)
+  }
 
   return (
       <div className="inputPattern">
@@ -29,10 +56,10 @@ export function PatternReader({inputPattern, setInputPattern, totalGames, setRes
           </FormGroup>
         </Form>
         <div className="patternButton">
-          <Button onClick={() => setProgress(true)} color="success">Buscar patrón</Button>{"  "}
+          <Button onClick={() => processGames()} color="success">Buscar patrón</Button>{"  "}
         </div>
-        <div className="patternSpinner">
-          {progress ? <Spinner /> : null}
+        <div className="loader">
+        <Progress value={statusProgress} striped/>
         </div>
       </div>
   )

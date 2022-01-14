@@ -1,45 +1,39 @@
 import Chess from "chess.js"
 import {getSquaresOfPiece} from "./chessParser"
 
-export function findPattern(inputPattern, totalGames, setResultGames){
-    console.log("buscando patrón...")
-    var pattern = inputPattern.split('\n')
-    if (!validPattern(pattern))
-      return []
-
-    pattern = splitPattern(pattern)
-    var fenPattern = readPattern(pattern.fixed)
-
-    if (pattern.fixed.length == 0 && pattern.attacking.length == 0)
-      return false
-
-    var resultIndexGames = []
-    for (var i=0; i<totalGames.length; i++){
-      //console.log(i)
-      const history = totalGames[i].history({ verbose: true})
+export function findPatternInGame(game, pattern){
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      // for each move get fen and find pattern
+      const history = game.history({ verbose: true})
       const chess = new Chess()
 
-      // for each move get fen and find pattern
+      var found = false
       for (var j=0; j<history.length; j++){
         chess.move(history[j])
         var fenPosition = chess.fen()
 
         var found = true
         if (pattern.fixed.length > 0)
-          found = searchPatternFixedPieces(fenPattern, fenPosition)
+          found = searchPatternFixedPieces(pattern.fixed, fenPosition)
 
-        if (found && pattern.attacking.length > 0){
+        if (!found)
+          continue
+
+        if (pattern.attacking.length == 0){
+          found = true
+          break
+        }else{
           found = searchPatternAttackingPiece(pattern.attacking, fenPosition)
           if (found){
-            resultIndexGames.push(i)
+            found = true
             break
           }
         }
       }
-    }
-    console.log("busqueda finalizada")
-    console.log(resultIndexGames.length)
-    return resultIndexGames
+      resolve(found)
+    }, 0)
+  })
 }
 
 export function searchPatternOne(inputPattern, fenPosition){
@@ -51,8 +45,11 @@ export function searchPatternOne(inputPattern, fenPosition){
   var fenPattern = readPattern(pattern.fixed)
 
   var found = searchPatternFixedPieces(fenPattern, fenPosition)
-  if (found)
-    found = searchPatternAttackingPiece(pattern.attacking, fenPosition)
+  if (!found)
+    return false
+  if (pattern.attacking.length == 0)
+    return true
+  found = searchPatternAttackingPiece(pattern.attacking, fenPosition)
   return found
 }
 
