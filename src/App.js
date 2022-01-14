@@ -37,7 +37,7 @@ function App() {
 
   return (
     <div className="main">
-      <h1>Pattern chess finder</h1>
+      <h1>Chess Pattern Finder</h1>
     <Row>
       <GameVisualizer
         game={game}
