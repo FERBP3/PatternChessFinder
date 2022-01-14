@@ -5,7 +5,15 @@ Aplicación web para buscar patrones de una base de datos PGN.
 
 
 ## Dependecias
+- node.js
 - npm
+
+Basta con instalar node para tener npm
+https://nodejs.org/es/download/package-manager/
+
+Versiones que se utilizó para este proyecto:
+- node.js 14.18.2
+- npm 6.14.15
 
 ## Ejecución
 `npm install`
